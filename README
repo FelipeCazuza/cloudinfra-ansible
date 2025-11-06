@@ -1,6 +1,6 @@
 # 🌐 Automação GLPI — CloudInfra
 
-Automação completa do **deploy do GLPI** em ambiente multi-VM (bastion, app e banco de dados) utilizando **Ansible + Docker + Nginx**.
+Automação completa do **deploy do GLPI** em ambiente multi-VM (bastion, app e banco de dados) utilizando Ansible, Docker & Nginx.
 
 ---
 
