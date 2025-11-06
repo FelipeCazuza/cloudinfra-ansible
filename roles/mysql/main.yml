@@ -1,0 +1,82 @@
+---
+# Role: mysql
+# Função: Garantir instalação e configuração do MariaDB para o GLPI
+
+#  Dependência Python do módulo MySQL
+- name: Garantir dependência do Python MySQL
+  become: yes
+  ansible.builtin.yum:
+    name: python3-PyMySQL
+    state: present
+
+#  Verifica se MariaDB já está instalado
+- name: Verificar se MariaDB já está instalado
+  become: yes
+  ansible.builtin.shell: rpm -q mariadb-server
+  register: mariadb_installed
+  ignore_errors: true
+
+#  Instala MariaDB apenas se necessário
+- name: Instalar MariaDB (se necessário)
+  become: yes
+  ansible.builtin.yum:
+    name: mariadb-server
+    state: present
+  when: mariadb_installed.rc != 0
+
+#  Habilita e inicia o serviço MariaDB
+- name: Habilitar e iniciar o serviço MariaDB
+  become: yes
+  ansible.builtin.systemd:
+    name: mariadb
+    state: started
+    enabled: yes
+
+#  Aguarda o socket do MariaDB
+- name: Aguardar o socket do MariaDB estar disponível
+  become: yes
+  ansible.builtin.wait_for:
+    path: /var/lib/mysql/mysql.sock
+    state: present
+    timeout: 30
+
+#  Verifica se o banco GLPI já existe
+- name: Verificar se o banco GLPI já existe
+  become: yes
+  community.mysql.mysql_info:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+  register: mysql_info
+  ignore_errors: true
+
+#  Cria banco apenas se não existir
+- name: Criar banco de dados GLPI 
+  become: yes
+  community.mysql.mysql_db:
+    name: glpidb
+    state: present
+    login_unix_socket: /var/lib/mysql/mysql.sock
+  when: mysql_info is defined and "'glpidb' not in mysql_info.databases"
+
+#  Cria o usuário com privilégios adequados
+- name: Criar usuário GLPI e conceder permissões
+  become: yes
+  community.mysql.mysql_user:
+    name: glpiuser
+    password: "Glpi@2030!"
+    priv: "glpidb.*:ALL"
+    host: "IP do Banco"
+    state: present
+    login_unix_socket: /var/lib/mysql/mysql.sock
+
+#  Garante que está escutando na porta correta
+- name: Garantir que o serviço MariaDB está escutando na porta 3306
+  become: yes
+  ansible.builtin.shell: "ss -tuln | grep 3306 || true"
+  register: mysql_status
+  changed_when: false
+
+#  Mensagem de status final
+- debug:
+    msg: >
+     Banco GLPI configurado e ativo.
+      Serviço MariaDB ouvindo na porta 3306: {{ mysql_status.stdout | default('não detectado') }}

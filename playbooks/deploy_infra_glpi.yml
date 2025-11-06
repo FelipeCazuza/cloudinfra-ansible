@@ -1,0 +1,14 @@
+---
+- name: Deploy completo da infraestrutura GLPI
+  hosts: all
+  gather_facts: yes
+
+  roles:
+    - role: mysql
+      when: inventory_hostname == "banco"
+
+    - role: docker
+      when: inventory_hostname == "glpi"
+
+    - role: nginx
+      when: inventory_hostname == "bastion"

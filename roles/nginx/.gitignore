@@ -1,0 +1,47 @@
+# ===============================
+# CloudInfra - Git Ignore Rules
+# ===============================
+
+# Chaves e credenciais
+*.pem
+*.key
+*.pub
+*.env
+*.retry
+*.tfvars
+chave/
+
+# Arquivos temporários e logs
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.retry
+*.tar.gz
+
+# Diretórios do Ansible
+*.retry
+inventory/group_vars/*.yml
+inventory/host_vars/*.yml
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+crash.log
+
+# Docker
+storage/
+__pycache__/
+*.pid
+
+# IDEs e editores
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Windows e macOS
+ehthumbs.db
+desktop.ini

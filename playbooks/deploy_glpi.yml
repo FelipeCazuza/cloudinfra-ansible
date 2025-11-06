@@ -1,0 +1,98 @@
+---
+- name: Deploy e verificação do GLPI via Docker Compose
+  hosts: glpi
+  become: false
+  tasks:
+
+    - name: Garantir que o Docker está em execução
+      become: yes
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Copiar docker-compose.yml para o servidor
+      ansible.builtin.copy:
+        src: ../roles/docker/files/docker-compose.yml
+        dest: /home/opc/docker-compose.yml
+        owner: opc
+        group: opc
+        mode: '0644'
+
+    - name: Copiar Dockerfile para o servidor
+      ansible.builtin.copy:
+        src: ../roles/docker/files/Dockerfile
+        dest: /home/opc/Dockerfile
+        owner: opc
+        group: opc
+        mode: '0644'
+
+    - name: Criar arquivo .env do GLPI
+      ansible.builtin.copy:
+        dest: /home/opc/.env
+        content: |
+          #Configurações do Banco
+            MYSQL_ROOT_PASSWORD="Glpi@2030!"
+            MYSQL_DATABASE=glpidb
+            MYSQL_USER=glpiuser
+            MYSQL_PASSWORD=Glpi@2030!"
+          #Configurações do GLPI
+          TZ=America/Sao_Paulo
+            GLPI_LANG=pt_BR
+            GLPI_INSTALL_MODE=1
+            #GLPI_HTTP_PORT=8080
+
+          # Banco externo (caso use o servidor de banco fora do container)
+          DB_HOST=(IP do banco)
+          DB_PORT=3306
+
+        owner: opc
+        group: opc
+        mode: '0600'
+
+    - name: Subir container GLPI com Docker Compose
+      become: yes
+      ansible.builtin.shell: docker compose up -d
+      args:
+        chdir: /home/opc/
+
+    - name: Aguardar 15 segundos para o container inicializar
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: Verificar se o container GLPI está ativo
+      become: yes
+      ansible.builtin.shell: 'docker ps --filter "name=glpi" --format "{{"{{.Names}}: {{.Status}}"}}"'
+      register: glpi_status
+      changed_when: false
+    
+    - name: Exibir status do GLPI  
+      debug:
+        msg: "Container GLPI: {{ glpi_status.stdout | default('não encontrado') }}"
+
+    - name: Reiniciar container GLPI se estiver parado ou unhealthy
+      become: yes
+      ansible.builtin.shell: |
+        if [ -z "$(docker ps --filter 'name=glpi' --filter 'status=running' -q)" ]; then
+          echo 'Reiniciando container GLPI...'
+          docker compose restart
+        fi
+      args:
+        chdir: /home/opc/
+      register: restart_result
+      changed_when: restart_result.stdout | length > 0
+
+    - name: Exibir status do container GLPI
+      ansible.builtin.debug:
+        msg: "Status atual: {{ glpi_status.stdout | default('GLPI não encontrado') }}"
+
+    - name: Verificar se o GLPI está respondendo na porta 8080
+      become: yes
+      ansible.builtin.uri:
+        url: "http://localhost:8080"
+        status_code: 200
+      register: glpi_http_check
+      retries: 5
+      delay: 5
+      until: glpi_http_check.status == 200
+

@@ -1,0 +1,21 @@
+# 🌐 CloudInfra – Automação GLPI
+
+Deploy automatizado do GLPI em ambiente multi-VM com rede privada, bastion e banco dedicado — 100% via Ansible e Docker.
+
+---
+
+## 🧱 Arquitetura
+- **Bastion** → ProxyJump SSH + Reverse Proxy (Nginx)
+- **App GLPI** → Container Docker via Compose
+- **Banco** → MariaDB dedicado
+- **Rede privada** → NAT e roteamento configurados via script
+
+---
+
+## 🛠️ Execução
+
+```bash
+ansible-playbook playbooks/install_docker.yml
+ansible-playbook playbooks/install_mysql.yml
+ansible-playbook playbooks/configure_glpi_db.yml
+ansible-playbook playbooks/deploy_glpi.yml

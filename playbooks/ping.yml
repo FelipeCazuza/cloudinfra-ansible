@@ -1,0 +1,6 @@
+- name: Teste de conectividade CloudInfra
+  hosts: CloudInfra
+  gather_facts: no
+  tasks:
+    - name: Verificar conexão com os servidores
+      ping:

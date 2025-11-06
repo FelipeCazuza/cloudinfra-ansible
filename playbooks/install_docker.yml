@@ -1,0 +1,6 @@
+---
+- name: Instalar Docker apenas no servidor GLPI
+  hosts: glpi
+  become: yes
+  roles:
+    - docker

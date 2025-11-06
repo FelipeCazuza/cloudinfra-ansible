@@ -1,0 +1,42 @@
+---
+- name: Atualizar pacotes
+  become: yes
+  ansible.builtin.package:
+    name: "*"
+    state: latest
+
+- name: Instalar dependências básicas
+  become: yes
+  ansible.builtin.package:
+    name:
+      - yum-utils
+      - device-mapper-persistent-data
+      - lvm2
+    state: present
+  ignore_errors: yes
+
+- name: Adicionar repositório Docker (RHEL/CentOS/Oracle)
+  become: yes
+  ansible.builtin.shell: |
+    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  args:
+    warn: false
+  when: ansible_os_family == "RedHat"
+
+- name: Instalar Docker e Compose Plugin
+  become: yes
+  ansible.builtin.package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+  ignore_errors: yes
+
+- name: Habilitar e iniciar o serviço Docker
+  become: yes
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: yes

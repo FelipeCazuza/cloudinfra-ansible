@@ -1,0 +1,24 @@
+---
+- name: Instalar e configurar MySQL no servidor de banco
+  hosts: banco
+  become: yes
+  tasks:
+    - name: Instalar MariaDB (MySQL)
+      ansible.builtin.yum:
+        name:
+          - mariadb-server
+        state: present
+
+    - name: Habilitar e iniciar o serviço MariaDB
+      ansible.builtin.systemd:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    - name: Garantir que o serviço está escutando na porta 3306
+      ansible.builtin.shell: "ss -tuln | grep 3306"
+      register: mysql_status
+      changed_when: false
+
+    - debug:
+        var: mysql_status.stdout

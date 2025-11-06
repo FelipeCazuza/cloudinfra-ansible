@@ -1,0 +1,100 @@
+---
+# Role: nginx
+# Função: Validar e configurar proxy reverso do GLPI no Bastion
+
+- name: Validar e configurar NGINX no Bastion
+  become: yes
+  hosts: bastion
+  tasks:
+
+    #  Verifica se o NGINX está instalado
+    - name: Verificar se NGINX está instalado
+      ansible.builtin.shell: "which nginx"
+      register: nginx_check
+      ignore_errors: true
+      changed_when: false
+
+    #  Instala se não existir
+    - name: Instalar NGINX se não estiver presente
+      ansible.builtin.dnf:
+        name: nginx
+        state: present
+      when: nginx_check.rc != 0
+
+    #  Habilita e inicia o serviço
+    - name: Garantir que o NGINX está em execução
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: yes
+
+    # Verifica se o arquivo glpi.conf existe
+    - name: Verificar se o proxy reverso GLPI está configurado
+      ansible.builtin.stat:
+        path: /etc/nginx/conf.d/glpi.conf
+      register: glpi_proxy
+
+    #  Ler conteúdo atual do arquivo (se existir)
+    - name: Ler conteúdo atual do proxy reverso
+      ansible.builtin.slurp:
+        src: /etc/nginx/conf.d/glpi.conf
+      register: glpi_conf_content
+      when: glpi_proxy.stat.exists
+      changed_when: false
+
+    #  Recriar o arquivo se estiver ausente ou incorreto
+    - name: Garantir configuração correta do proxy reverso GLPI
+      ansible.builtin.copy:
+        dest: /etc/nginx/conf.d/glpi.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          server {
+              listen 8080;
+              server_name localhost;
+
+              location / {
+                  proxy_pass http://IP do servidor GLPI:8080;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+      when: >
+        (not glpi_proxy.stat.exists) or
+        ('proxy_pass http://IP do servidor GLPI:8080' not in (glpi_conf_content['content'] | b64decode))
+
+    #  Habilita SELinux para conexões de rede
+    - name: Habilitar SELinux para permitir proxy HTTP
+      ansible.builtin.shell: setsebool -P httpd_can_network_connect 1
+
+    #  Testa e recarrega NGINX
+    - name: Validar configuração do NGINX
+      ansible.builtin.shell: nginx -t
+      register: nginx_test
+      changed_when: false
+
+    - name: Recarregar NGINX se a configuração estiver válida
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+      when: nginx_test.rc == 0
+
+    #  Testa o proxy reverso (health check)
+    - name: Testar proxy reverso GLPI localmente
+      ansible.builtin.uri:
+        url: "http://localhost:8080"
+        status_code: 200
+      register: proxy_status
+      retries: 3
+      delay: 5
+      until: proxy_status.status == 200
+      ignore_errors: yes
+
+    - debug:
+        msg: >
+          Proxy reverso GLPI validado com status: {{
+            proxy_status.status | default('N/D')
+          }}

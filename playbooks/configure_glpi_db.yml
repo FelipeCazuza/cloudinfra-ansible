@@ -1,0 +1,7 @@
+- name: Criar banco e usuário do GLPI
+  hosts: banco
+  become: yes
+  roles:
+    - mysql
+    
+    
