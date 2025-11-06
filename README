@@ -1,21 +1,67 @@
-# 🌐 CloudInfra – Automação GLPI
+# 🌐 Automação GLPI — CloudInfra
 
-Deploy automatizado do GLPI em ambiente multi-VM com rede privada, bastion e banco dedicado — 100% via Ansible e Docker.
-
----
-
-## 🧱 Arquitetura
-- **Bastion** → ProxyJump SSH + Reverse Proxy (Nginx)
-- **App GLPI** → Container Docker via Compose
-- **Banco** → MariaDB dedicado
-- **Rede privada** → NAT e roteamento configurados via script
+Automação completa do **deploy do GLPI** em ambiente multi-VM (bastion, app e banco de dados) utilizando **Ansible + Docker + Nginx**.
 
 ---
 
-## 🛠️ Execução
+## 🧱 Arquitetura da Solução
 
-```bash
-ansible-playbook playbooks/install_docker.yml
-ansible-playbook playbooks/install_mysql.yml
-ansible-playbook playbooks/configure_glpi_db.yml
-ansible-playbook playbooks/deploy_glpi.yml
+|   Função         |           Descrição               | Tecnologia   |
+|------------------|-----------------------------------|--------------|
+| **Bastion**      |Servidor público para acesso SSH (ProxyJump) e Reverse Proxy (Nginx) | Oracle Linux 8 + Nginx |
+| **GLPI (App)**   | Container Docker com GLPI e Apache PHP | Docker Compose |
+| **Banco**        | Servidor MariaDB dedicado (externo ao container) | MariaDB |
+| **Rede privada** | Subnet privada com NAT configurado no Bastion | OCI NAT + Firewall |
+
+---
+
+## ⚙️ Pré-requisitos
+
+Antes de executar os playbooks, **ajuste as variáveis do ambiente local**:
+
+1. **Defina os IPs dos servidores** no arquivo:
+   ```bash
+   inventory/hosts.ini
+
+2. **Ajuste o caminho da chave SSH** no arquivo ansible.cfg
+   ansible.cfg: private_key_file = 
+
+3. **Verificar a conectividade**
+   ansible -i inventory/hosts.ini CloudInfra -m ping
+
+🚀 Execução dos Playbooks
+Ordem sugerida para instalação e configuração completa do ambiente GLPI:
+
+ansible-playbook playbooks/install_docker.yml      # Instala o Docker no GLPI
+ansible-playbook playbooks/install_mysql.yml       # Instala o MariaDB
+ansible-playbook playbooks/configure_glpi_db.yml   # Cria banco e usuário do GLPI
+ansible-playbook playbooks/deploy_glpi.yml         # Faz o deploy do container GLPI
+
+Estrutura de Pastas
+
+ansible/
+├── ansible.cfg
+├── inventory/
+│   └── hosts.ini
+├── playbooks/
+│   ├── install_docker.yml
+│   ├── install_mysql.yml
+│   ├── configure_glpi_db.yml
+│   ├── deploy_glpi.yml
+│   └── deploy_mysql.yml
+├── roles/
+│   ├── docker/
+│   │   ├── files/
+│   │   │   ├── Dockerfile
+│   │   │   └── docker-compose.yml
+│   │   └── tasks/main.yml
+│   ├── mysql/
+│   │   └── main.yml
+│   └── nginx/
+│       └── main.yml
+└── chave/ (não versionada)
+
+🌍 Acesso Final
+Após o deploy, o GLPI estará disponível via proxy reverso configurado no bastion:
+
+http://IP-GLPI:8080
